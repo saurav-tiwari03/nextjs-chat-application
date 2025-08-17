@@ -31,7 +31,7 @@ export default function RegisterForm() {
 
     setUserNameStatus("checking");
     const isTaken = await sendGetRequest(`/check-username?username=${username}`);
-    setUserNameStatus(isTaken?.available ? "available" : "taken");
+    setUserNameStatus(isTaken?.data?.available ? "available" : "taken");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -40,8 +40,8 @@ export default function RegisterForm() {
 
     try {
       const response = await sendPostRequest("/register", formData);
-      localStorage.setItem("token", response.token);
-      localStorage.setItem("user", JSON.stringify(response.user));  
+      localStorage.setItem("token", response?.data?.token);
+      localStorage.setItem("user", JSON.stringify(response?.data?.user));
       router.push("/");
     } catch (error) {
       console.error("Registration error:", error);

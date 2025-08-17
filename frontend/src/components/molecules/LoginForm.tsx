@@ -29,8 +29,8 @@ export default function LoginForm() {
     try {
       const response = await sendPostRequest("/login", formData);
       console.log("Login success:", response);
-      localStorage.setItem("token", response.token);
-      localStorage.setItem("user", JSON.stringify(response.user));
+      localStorage.setItem("token", response?.data?.token);
+      localStorage.setItem("user", JSON.stringify(response?.data?.user));
       router.push("/chat");
     } catch (err: any) {
       setError("Invalid email or password.");

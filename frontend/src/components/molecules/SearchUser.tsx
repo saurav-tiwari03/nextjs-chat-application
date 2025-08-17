@@ -17,7 +17,7 @@ export default function SearchUser({ onSelectUser }: { onSelectUser?: (user: str
         setLoading(true);
         try {
           const data = await sendGetRequest(`/search?search=${query}`);
-          setResults(data || []);
+          setResults(data?.data || []);
         } catch (err) {
           console.error("Error fetching users:", err);
           setResults([]);

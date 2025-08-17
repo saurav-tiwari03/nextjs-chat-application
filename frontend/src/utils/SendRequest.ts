@@ -14,7 +14,7 @@ export const sendPostRequest = async <T = any>(
 ): Promise<T> => {
   try {
     const response: AxiosResponse<T> = await axios.post(`${BaseUrl}${endPoint}`, data);
-    return response.data.data;
+    return response.data;
   } catch (error) {
     console.error("Error sending POST request:", error);
     throw error;
@@ -32,7 +32,7 @@ export const sendGetRequest = async <T = any>(
     const response: AxiosResponse<T> = await axios.get(`${BaseUrl}${endPoint}`, {
       params: query,
     });
-    return response.data.data;
+    return response.data;
   } catch (error) {
     console.error("Error sending GET request:", error);
     throw error;
@@ -53,7 +53,7 @@ export const sendProtectedPostRequest = async <T = any>(
         Authorization: `Bearer ${token}`,
       },
     });
-    return response.data.data;
+    return response.data;
   } catch (error) {
     console.error("Error sending protected POST request:", error);
     throw error;
@@ -73,7 +73,7 @@ export const sendProtectedGetRequest = async <T = any>(
         Authorization: `Bearer ${token}`,
       },
     });
-    return response.data.data;
+    return response.data;
   } catch (error) {
     console.error("Error sending protected GET request:", error);
     throw error;
