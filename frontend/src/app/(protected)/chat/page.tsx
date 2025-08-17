@@ -5,7 +5,7 @@ import { io } from "socket.io-client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Send } from "lucide-react";
 import SearchUser from "@/components/molecules/SearchUser";
 import UserTab from "@/components/molecules/UserTab";
@@ -22,71 +22,91 @@ type Msg = {
   to: string;     // userId
   createdAt: string;
 };
-const token = localStorage.getItem("token");
 
+const token = localStorage.getItem("token");
 const socket = io(`${process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5004"}?token=${token}`);
 
 export default function ChatPage() {
   const [message, setMessage] = useState("");
-  // const [allUsers, setAllUsers] = useState<string[]>([]);
-  const [socketId, setSocketId] = useState("");
-  const [selectedUser, setSelectedUser] = useState("");
+  const [, setSelectedUser] = useState("");
   const [otherUser, setOtherUser] = useState<{ name: string, username: string, email: string, id: string } | null>(null);
   const searchParams = useSearchParams();
   const [messages, setMessages] = useState<Msg[]>([]);
-
   const [user, setUser] = useState<User | null>(null);
 
-  const fetchUser = async () => {
-    const userId = searchParams.get("roomId");
-    if (userId) {
-      const response = await sendProtectedGetRequest(`/user/${userId}`, token!);
-      setOtherUser(response?.data);
-    }
-  };
-
+  // Load current user & set up socket listeners (once)
   useEffect(() => {
-    fetchUser();
-    if (localStorage.getItem("user")) {
-      setUser(JSON.parse(localStorage.getItem("user")!));
-    }
+    const stored = localStorage.getItem("user");
+    if (stored) setUser(JSON.parse(stored));
 
-    socket.on("connect", () => {
-      setSocketId(socket.id!);
+    const onConnect = () => {
       toast.success(`Connected to server: ${socket.id}`);
-    });
-
-    socket.on("privateMessage", (msg: Msg) => {
+    };
+    const onPrivateMessage = (msg: Msg) => {
       console.log("New private message received:", msg);
-      toast.message(`@${msg.from}`, {
-        description: `New message : ${msg.text}`,
-      });
-      setMessages((prevMessages) => [...prevMessages, msg]);
-    });
+      toast.message(`@${msg.from}`, { description: `New message : ${msg.text}` });
+      setMessages(prev => [...prev, msg]);
+    };
+
+    socket.on("connect", onConnect);
+    socket.on("privateMessage", onPrivateMessage);
 
     return () => {
-      socket.off("connect");
-      socket.off("privateMessage");
+      socket.off("connect", onConnect);
+      socket.off("privateMessage", onPrivateMessage);
     };
-  }, [searchParams]);
+  }, []);
 
+  // Fetch the "other user" when roomId changes
+  useEffect(() => {
+    const userId = searchParams.get("roomId");
+    if (!userId) {
+      setOtherUser(null);
+      return;
+    }
+    (async () => {
+      try {
+        const tk = localStorage.getItem("token") ?? "";
+        const response = await sendProtectedGetRequest(`/user/${userId}`, tk);
+        setOtherUser(response?.data ?? null);
+      } catch (e) {
+        console.error(e);
+        setOtherUser(null);
+      }
+    })();
+  }, [searchParams]);
 
   const sendMessage = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    SendPrivateMessage(socket, otherUser?.id!, message);
-    toast.success("Message sent", {
-      description: message,
-    });
-    setMessages((prevMessages) => [
-      ...prevMessages,
+    const trimmed = message.trim();
+    if (!trimmed) return;
+
+    if (!otherUser?.id) {
+      toast.error("No recipient selected.");
+      return;
+    }
+    if (!user?.id) {
+      toast.error("User not loaded.");
+      return;
+    }
+
+    // send to server
+    SendPrivateMessage(socket, otherUser.id, trimmed);
+
+    toast.success("Message sent", { description: trimmed });
+
+    // optimistic append
+    setMessages(prev => [
+      ...prev,
       {
         _id: Date.now().toString(),
-        text: message,
-        from: user?.id!,
-        to: otherUser?.id!,
+        text: trimmed,
+        from: user.id,
+        to: otherUser.id,
         createdAt: new Date().toISOString(),
       },
     ]);
+
     setMessage("");
   };
 
@@ -114,7 +134,7 @@ export default function ChatPage() {
             </CardHeader>
 
             <CardContent className="flex flex-col h-[500px] justify-between space-y-4">
-              {/* Chat area (placeholder for history) */}
+              {/* Chat area */}
               <div className="flex-1 overflow-y-auto rounded-lg border border-white/10 bg-black/30 p-3 text-sm text-zinc-400">
                 <div className="flex-1 overflow-y-auto rounded-lg p-3 text-sm">
                   {messages.length === 0 ? (
@@ -124,8 +144,7 @@ export default function ChatPage() {
                       {messages.map((m) => (
                         <li key={m._id} className={`flex ${isMine(m) ? "justify-end" : "justify-start"}`}>
                           <div
-                            className={`max-w-[75%] rounded-md px-3 py-2 ${isMine(m) ? "bg-violet-600 text-white" : "bg-zinc-800 text-zinc-100"
-                              }`}
+                            className={`max-w-[75%] rounded-md px-3 py-2 ${isMine(m) ? "bg-violet-600 text-white" : "bg-zinc-800 text-zinc-100"}`}
                             title={new Date(m.createdAt).toLocaleString()}
                           >
                             {m.text}
