@@ -5,6 +5,7 @@ import { sendGetRequest } from "@/utils/SendRequest";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Search } from "lucide-react";
+import ChatButton from "../atoms/ChatButton";
 
 export default function SearchUser({ onSelectUser }: { onSelectUser?: (user: string) => void }) {
   const [query, setQuery] = useState("");
@@ -62,10 +63,11 @@ export default function SearchUser({ onSelectUser }: { onSelectUser?: (user: str
             results.map((user: any) => (
               <li
                 key={user.id}
-                className="cursor-pointer rounded-md border border-white/10 bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
+                className="rounded-md border border-white/10 bg-zinc-800 px-3 py-2 text-sm flex items-center justify-between"
                 onClick={() => onSelectUser?.(user.name)}
               >
                 {user.name}
+                <ChatButton id={user.id} />
               </li>
             ))
           ) : (
