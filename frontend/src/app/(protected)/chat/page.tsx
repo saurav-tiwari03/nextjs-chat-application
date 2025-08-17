@@ -1,73 +1,116 @@
 "use client"
-
+import { useSearchParams } from 'next/navigation'
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Send } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Send } from "lucide-react";
 import SearchUser from "@/components/molecules/SearchUser";
 import UserTab from "@/components/molecules/UserTab";
 import { User } from "@/app/interface";
 import NotificationsTab from "@/components/molecules/NotificationsTab";
+import { sendProtectedGetRequest } from '@/utils/SendRequest';
+import ChatName from '@/components/atoms/ChatName';
+import { SendPrivateMessage } from '@/socket/PrivateChat/PrivateMessage';
 
-const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5004");
+type Msg = {
+  _id: string;
+  text: string;
+  from: string;   // userId
+  to: string;     // userId
+  createdAt: string;
+};
+
+const token = localStorage.getItem("token");
+const socket = io(`${process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5004"}?token=${token}`);
 
 export default function ChatPage() {
   const [message, setMessage] = useState("");
-  const [allUsers, setAllUsers] = useState<string[]>([]);
-  const [socketId, setSocketId] = useState("");
-  const [selectedUser, setSelectedUser] = useState("");
-
+  const [, setSelectedUser] = useState("");
+  const [otherUser, setOtherUser] = useState<{ name: string, username: string, email: string, id: string } | null>(null);
+  const searchParams = useSearchParams();
+  const [messages, setMessages] = useState<Msg[]>([]);
   const [user, setUser] = useState<User | null>(null);
 
+  // Load current user & set up socket listeners (once)
   useEffect(() => {
+    const stored = localStorage.getItem("user");
+    if (stored) setUser(JSON.parse(stored));
 
-    if (localStorage.getItem("user")) {
-      setUser(JSON.parse(localStorage.getItem("user")!));
-    }
-
-    socket.on("connect", () => {
-      setSocketId(socket.id!);
+    const onConnect = () => {
       toast.success(`Connected to server: ${socket.id}`);
-    });
+    };
+    const onPrivateMessage = (msg: Msg) => {
+      console.log("New private message received:", msg);
+      toast.message(`@${msg.from}`, { description: `New message : ${msg.text}` });
+      setMessages(prev => [...prev, msg]);
+    };
 
-    socket.on("reply", (data) => {
-      toast.info(`${data.text}`);
-    });
-
-    socket.on("allUsers", (users) => {
-      setAllUsers(users);
-    });
+    socket.on("connect", onConnect);
+    socket.on("privateMessage", onPrivateMessage);
 
     return () => {
-      socket.off("connect");
-      socket.off("reply");
-      socket.off("allUsers");
+      socket.off("connect", onConnect);
+      socket.off("privateMessage", onPrivateMessage);
     };
   }, []);
 
-  const sendMessage = () => {
-    if (!selectedUser) {
-      toast.error("Please select a user first");
+  // Fetch the "other user" when roomId changes
+  useEffect(() => {
+    const userId = searchParams.get("roomId");
+    if (!userId) {
+      setOtherUser(null);
       return;
     }
-    if (!message.trim()) {
-      toast.error("Message cannot be empty");
+    (async () => {
+      try {
+        const tk = localStorage.getItem("token") ?? "";
+        const response = await sendProtectedGetRequest(`/user/${userId}`, tk);
+        setOtherUser(response?.data ?? null);
+      } catch (e) {
+        console.error(e);
+        setOtherUser(null);
+      }
+    })();
+  }, [searchParams]);
+
+  const sendMessage = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const trimmed = message.trim();
+    if (!trimmed) return;
+
+    if (!otherUser?.id) {
+      toast.error("No recipient selected.");
       return;
     }
-    socket.emit("private_message", { text: message, to: selectedUser });
-    toast.success(`Message sent to ${selectedUser}`);
+    if (!user?.id) {
+      toast.error("User not loaded.");
+      return;
+    }
+
+    // send to server
+    SendPrivateMessage(socket, otherUser.id, trimmed);
+
+    toast.success("Message sent", { description: trimmed });
+
+    // optimistic append
+    setMessages(prev => [
+      ...prev,
+      {
+        _id: Date.now().toString(),
+        text: trimmed,
+        from: user.id,
+        to: otherUser.id,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+
     setMessage("");
   };
+
+  const isMine = (m: Msg) => m.from === user?.id;
 
   return (
     <main className="h-screen bg-gradient-to-b from-black to-zinc-900 px-4 py-4 text-white">
@@ -81,82 +124,56 @@ export default function ChatPage() {
         <section className="md:col-span-2">
           <Card className="h-full border border-white/10 bg-zinc-900 shadow-xl">
             <CardHeader className="flex flex-col items-center space-y-2">
-              <div className="flex w-full justify-between items-center">
-                <CardTitle className="text-2xl font-bold tracking-tight">
-                  SauravGo Chat
-                </CardTitle>
+              <div className="flex w-full justify-end items-center">
                 <div className="flex gap-2 items-center">
                   <NotificationsTab />
                   <UserTab user={{ name: user?.name, avatarUrl: user?.avatarUrl }} />
                 </div>
               </div>
-              <p className="text-sm text-zinc-400">Socket ID: {socketId}</p>
+              <div className='flex items-start w-full'>{otherUser && <ChatName user={otherUser} />}</div>
             </CardHeader>
 
             <CardContent className="flex flex-col h-[500px] justify-between space-y-4">
-              {/* Chat area (placeholder for history) */}
+              {/* Chat area */}
               <div className="flex-1 overflow-y-auto rounded-lg border border-white/10 bg-black/30 p-3 text-sm text-zinc-400">
-                <p className="text-center text-zinc-500">No messages yet</p>
+                <div className="flex-1 overflow-y-auto rounded-lg p-3 text-sm">
+                  {messages.length === 0 ? (
+                    <p className="text-center text-zinc-500">No messages yet</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {messages.map((m) => (
+                        <li key={m._id} className={`flex ${isMine(m) ? "justify-end" : "justify-start"}`}>
+                          <div
+                            className={`max-w-[75%] rounded-md px-3 py-2 ${isMine(m) ? "bg-violet-600 text-white" : "bg-zinc-800 text-zinc-100"}`}
+                            title={new Date(m.createdAt).toLocaleString()}
+                          >
+                            {m.text}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
 
               {/* Input + Send */}
-              <div className="space-y-3">
-                <Textarea
+              <form className="space-y-3 flex gap-1 items-start " onSubmit={sendMessage}>
+                <Input
                   placeholder="Type your message here..."
                   className="w-full resize-none border-white/10 bg-black/50 text-white placeholder:text-zinc-500"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                 />
-
                 <div className="flex items-center justify-between gap-3">
-                  <Select
-                    value={selectedUser}
-                    onValueChange={(value) => setSelectedUser(value)}
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Select User" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allUsers.map((user) => (
-                        <SelectItem key={user} value={user}>
-                          {user}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
                   <Button
-                    onClick={sendMessage}
+                    type='submit'
                     variant="outline"
                     className="flex items-center gap-2 border-white/20 bg-white/5 text-white hover:bg-zinc-800"
                   >
                     <Send className="h-4 w-4" /> Send
                   </Button>
                 </div>
-              </div>
-
-              {/* Online Users */}
-              {allUsers.length > 0 && (
-                <div className="mt-2 rounded-lg border border-white/10 bg-black/40 p-3 text-sm text-zinc-300">
-                  <div className="mb-2 flex items-center gap-2 text-zinc-400">
-                    <Users className="h-4 w-4" /> Online Users
-                  </div>
-                  <ul className="flex flex-wrap gap-2">
-                    {allUsers.map((user) => (
-                      <li
-                        key={user}
-                        className={`cursor-pointer rounded-md px-2 py-1 text-xs ${user === selectedUser
-                            ? "bg-zinc-700 text-white"
-                            : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
-                          }`}
-                        onClick={() => setSelectedUser(user)}
-                      >
-                        {user}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              </form>
             </CardContent>
           </Card>
         </section>

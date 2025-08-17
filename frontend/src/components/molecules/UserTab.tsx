@@ -49,7 +49,7 @@ export default function UserTab({ user }: { user?: { name?: string; avatarUrl?: 
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuItem>My Account</DropdownMenuItem>
+        <DropdownMenuItem>{user?.name}</DropdownMenuItem>
         <DropdownMenuItem>Settings</DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
