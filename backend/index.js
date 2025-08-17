@@ -6,10 +6,7 @@ const router = require("./routes/route");
 const cors = require("cors");
 const { encryptAuthToken } = require("./utils/jwt");
 
-const {
-  createMessage,
-  getAllMessages,
-} = require("./controllers/message.controller");
+const messageController = require("./controllers/message.controller");
 
 require("dotenv").config();
 
@@ -32,34 +29,22 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/v1", router);
 
 io.on("connection", (socket) => {
-  // prefer auth, but this keeps your query style:
   const userData = encryptAuthToken(socket.handshake.query.token);
+  console.log("UserData:", userData);
+
   socket.data.userId = userData.id;
   socket.join(userData.id);
 
-  socket.on("private_message", async ({ text, to }) => {
-    if (!text || !to) return;
-
-    const saved = await createMessage(socket, {
-      text,
-      from: socket.data.userId,
-      to,
-    });
-
-
-    socket.emit("message:new", saved);
-
-    // (optional) keep your toast:
-    io.to(to).emit("reply", {
-      text,
-      fromUserId: socket.data.userId,
-      socketId: socket.id,
-      ts: Date.now(),
+  socket.on("sendPrivateMessage", ({ to, message }) => {
+    console.log("Sending private message to:", to, message);
+    socket.to(to).emit("privateMessage", {
+      from: userData.username,
+      text: message,
     });
   });
 
-  socket.on("get_all_messages", async ({ from, to, limit }) => {
-    await getAllMessages(socket, { from, to, limit });
+  socket.on("disconnect", () => {
+    console.log("user disconnected:", socket.id);
   });
 });
 
