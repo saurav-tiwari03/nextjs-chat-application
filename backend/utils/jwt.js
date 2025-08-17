@@ -5,9 +5,14 @@ const generateAuthToken = (user) => {
     id: user._id,
     email: user.email
   };
-  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign(payload, process.env.JWT_SECRET, {});
 };
 
+const encryptAuthToken = (token) => {
+  return jwt.verify(token, process.env.JWT_SECRET);
+}
+
 module.exports = {
-  generateAuthToken
+  generateAuthToken,
+  encryptAuthToken
 };

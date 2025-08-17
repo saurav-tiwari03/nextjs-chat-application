@@ -18,7 +18,7 @@ exports.login = async (req, res, next) => {
     }
     const token = generateAuthToken(user);
     return successHandler(res, {
-      user: { email: user.email, username: user.username, name: user.name },
+      user: { email: user.email, username: user.username, name: user.name, id: user._id },
       token,
     });
   } catch (error) {
@@ -59,6 +59,8 @@ exports.register = async (req, res, next) => {
     return successHandler(res, {
       email: newUser.email,
       name: newUser.name,
+      id: newUser._id,
+      username: newUser.username,
       token,
     });
   } catch (error) {
@@ -94,10 +96,38 @@ exports.searchUser = async (req, res, next) => {
         { name: { $regex: search, $options: "i" } },
       ],
     });
-    return successHandler(res, users);
+
+    const filteredUsers = users.map(user => ({
+      id: user._id,
+      name: user.name,
+      username: user.username,
+      email: user.email
+    }));
+
+    return successHandler(res, filteredUsers);
   } catch (error) {
     console.log("Search User Error : ", error);
     errorHandler(res, error.message);
     next();
   }
 };
+
+exports.getUserById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id);
+    if (!user) {
+      return errorHandler(res, null, "User not found");
+    }
+    return successHandler(res, {
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      username: user.username,
+    });
+  } catch (error) {
+    console.log("Get User By ID Error : ", error);
+    errorHandler(res, error.message);
+    next();
+  }
+}
