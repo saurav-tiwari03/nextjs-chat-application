@@ -34,6 +34,7 @@ export default function LoginForm() {
       router.push("/chat");
     } catch (err: any) {
       setError("Invalid email or password.");
+      console.log(err)
     } finally {
       setLoading(false);
     }

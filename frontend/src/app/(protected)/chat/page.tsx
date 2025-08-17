@@ -13,8 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import Link from "next/link";
-import { Users, Send, Link2 } from "lucide-react";
+import { Users, Send } from "lucide-react";
 import SearchUser from "@/components/molecules/SearchUser";
 import UserTab from "@/components/molecules/UserTab";
 import { User } from "@/app/interface";

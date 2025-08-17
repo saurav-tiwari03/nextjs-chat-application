@@ -33,6 +33,7 @@ export default function UserTab({ user }: { user?: { name?: string; avatarUrl?: 
       return toast.success("Logged out successfully")
     } catch (error) {
       toast.error("Error logging out")
+      console.error("Logout error:", error);
     }
   }
   return (
