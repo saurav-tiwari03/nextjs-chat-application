@@ -4,10 +4,9 @@ import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Send } from "lucide-react";
+import { Send } from "lucide-react";
 import SearchUser from "@/components/molecules/SearchUser";
 import UserTab from "@/components/molecules/UserTab";
 import { User } from "@/app/interface";
@@ -62,6 +61,7 @@ export default function ChatPage() {
       toast.message(`@${msg.from}`, {
         description: `New message : ${msg.text}`,
       });
+      setMessages((prevMessages) => [...prevMessages, msg]);
     });
 
     return () => {
@@ -77,6 +77,16 @@ export default function ChatPage() {
     toast.success("Message sent", {
       description: message,
     });
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      {
+        _id: Date.now().toString(),
+        text: message,
+        from: user?.id!,
+        to: otherUser?.id!,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
     setMessage("");
   };
 
